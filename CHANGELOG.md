@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.70
+
+- fix(pocketd): give a pocketd with no console a windowless one on Windows (#458): (9535e5e7)
+- fix(desktop): offer Local for a project on a host whose pocketd keeps Locals (#456): (0debe16f)
+- fix(pocketd): update a Windows host whose task starts pocketd through a wrapper (#455): (48842d1e)
+
 ## 0.1.69
 
 - fix(desktop): keep a long path chip inside the chat column (#453): (0130d6bf)
