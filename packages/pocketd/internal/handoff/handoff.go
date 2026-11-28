@@ -52,6 +52,9 @@ type Agent struct {
 	// Read is how far its Claude transcript is in its timeline: to the end of a whole line.
 	Read       int64               `json:"read,omitempty"`
 	Background timeline.Background `json:"background,omitzero"`
+	// LaunchUnchecked says the saved launch wasn't read from the running agent, so it may predate it: a crash
+	// left only the state file, or a restarted agent hadn't come back yet.
+	LaunchUnchecked bool `json:"launchUnchecked,omitempty"`
 }
 
 func Path(home string) string { return filepath.Join(home, "handoff.json") }

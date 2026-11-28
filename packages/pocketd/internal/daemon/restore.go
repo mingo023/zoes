@@ -44,6 +44,7 @@ type hint struct {
 	settled bool // finish has returned: the agent shows how its restore went
 	timer   *time.Timer
 	handoff bool   // handed down by the pocketd before exec; its agent never stopped
+	carried bool   // saved is what the pocketd before handed down, launch included, not its state file
 	read    int64  // how far a handed-down agent's transcript is in its timeline
 	moved   bool   // a switch restarted the agent on another account; it stayed listed throughout
 	resend  string // the prompt a moved agent sends once it settles
@@ -172,7 +173,7 @@ func (d *Daemon) reopen(e state.Terminal, shell string) (*terminal.Terminal, str
 // Without t, or with a reason, it is a failed placeholder at once. A carried
 // Agent never stopped, so no clock fails it: a look at t that finds no agent does.
 func (d *Daemon) expect(e state.Terminal, t *terminal.Terminal, reason string, carried *handoff.Agent) {
-	h := &hint{saved: e, started: time.Now(), handoff: carried != nil}
+	h := &hint{saved: e, started: time.Now(), handoff: carried != nil, carried: carried != nil && !carried.LaunchUnchecked}
 	x := agent.Restored{ID: e.AgentID, Cwd: e.LaunchDir, Provider: e.Provider, Conversation: e.ConversationID,
 		Origin: e.Origin, Fallback: filepath.Base(e.LaunchDir), CreatedAt: e.CreatedAt, Done: e.Status == "done", Failed: e.Failed, Pinned: e.Pinned, Account: e.Account, ChatOnly: e.Chat}
 	if carried != nil {

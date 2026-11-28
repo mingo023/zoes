@@ -102,6 +102,10 @@ func (d *Daemon) startAgent(t *terminal.Terminal, provider string, p proc.Proc) 
 	if l, ok := launched(provider, info.Args); ok && !pr.typed {
 		pr.launch = l
 	}
+	// A handed-down agent never restarted, so a switch since its launch outlives the argv.
+	if h != nil && h.carried && h.saved.Launch != nil {
+		pr.launch = *h.saved.Launch
+	}
 	pr.a.SetTerminal(info.ID)
 	if s != nil {
 		pr.a.SetChatOnly()

@@ -76,6 +76,7 @@ func (c *chatter) read(prompts chan<- string) {
 				Subtype  string         `json:"subtype"`
 				TaskID   string         `json:"task_id"`
 				Model    string         `json:"model"`
+				Mode     string         `json:"mode"`
 				Settings map[string]any `json:"settings"`
 				Enabled  bool           `json:"enabled"`
 			} `json:"request"`
@@ -107,6 +108,10 @@ func (c *chatter) read(prompts chan<- string) {
 				c.switched = append(c.switched, l.Request.Model)
 				c.mu.Unlock()
 				note("set_model: %s", l.Request.Model)
+			case "set_permission_mode":
+				c.mu.Lock()
+				c.mode = l.Request.Mode
+				c.mu.Unlock()
 			case "apply_flag_settings":
 				note("effort: %v", l.Request.Settings["effortLevel"])
 			case "stop_task":
@@ -141,14 +146,14 @@ func (c *chatter) send(v any) {
 
 func (c *chatter) turn(text string) {
 	c.mu.Lock()
-	model, switched := c.model, c.switched
+	model, mode, switched := c.model, c.mode, c.switched
 	c.switched = nil
 	c.mu.Unlock()
 	select {
 	case <-c.stop:
 	default:
 	}
-	c.send(map[string]any{"type": "system", "subtype": "init", "session_id": c.s.id, "cwd": c.s.cwd, "model": model, "permissionMode": c.mode})
+	c.send(map[string]any{"type": "system", "subtype": "init", "session_id": c.s.id, "cwd": c.s.cwd, "model": model, "permissionMode": mode})
 	note("prompt: %s", text)
 	c.s.hook("UserPromptSubmit", map[string]any{"prompt": text})()
 	for _, m := range switched {

@@ -28,7 +28,22 @@ func (d *Daemon) Carry() []handoff.Terminal {
 		if !ok {
 			e = state.Terminal{TerminalID: info.ID, LaunchDir: info.Cwd, Cols: info.Cols, Rows: info.Rows, Local: info.Local}
 		}
-		out = append(out, handoff.Terminal{Saved: e, Cmd: info.Cmd, Args: info.Args, Cwd: info.Cwd, Agent: d.carried(e.AgentID, d.presentIn(info.ID))})
+		pr := d.presentIn(info.ID)
+		// A restart still settling saves the launch from before it, not the one its agent resumed on.
+		if pr != nil && e.Launch != nil {
+			pr.mu.Lock()
+			l := pr.launch
+			pr.mu.Unlock()
+			e.Launch = &l
+		}
+		a := d.carried(e.AgentID, pr)
+		if a != nil && pr == nil {
+			d.mu.Lock()
+			h := d.restoring[info.ID]
+			a.LaunchUnchecked = h == nil || !h.carried
+			d.mu.Unlock()
+		}
+		out = append(out, handoff.Terminal{Saved: e, Cmd: info.Cmd, Args: info.Args, Cwd: info.Cwd, Agent: a})
 	}
 	return out
 }
@@ -138,7 +153,7 @@ func (d *Daemon) Reattach(clients []*holder.Client, carried []handoff.Terminal, 
 			continue
 		}
 		if agent == nil {
-			agent = &handoff.Agent{Phase: phaseOf(e.Status)}
+			agent = &handoff.Agent{Phase: phaseOf(e.Status), LaunchUnchecked: true}
 		}
 		d.expect(e, t, "", agent)
 	}
