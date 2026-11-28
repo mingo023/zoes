@@ -146,14 +146,14 @@ func (c *chatter) send(v any) {
 
 func (c *chatter) turn(text string) {
 	c.mu.Lock()
-	model, switched := c.model, c.switched
+	model, mode, switched := c.model, c.mode, c.switched
 	c.switched = nil
 	c.mu.Unlock()
 	select {
 	case <-c.stop:
 	default:
 	}
-	c.send(map[string]any{"type": "system", "subtype": "init", "session_id": c.s.id, "cwd": c.s.cwd, "model": model, "permissionMode": c.mode})
+	c.send(map[string]any{"type": "system", "subtype": "init", "session_id": c.s.id, "cwd": c.s.cwd, "model": model, "permissionMode": mode})
 	note("prompt: %s", text)
 	c.s.hook("UserPromptSubmit", map[string]any{"prompt": text})()
 	for _, m := range switched {

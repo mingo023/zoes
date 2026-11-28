@@ -102,7 +102,7 @@ func (d *Daemon) startAgent(t *terminal.Terminal, provider string, p proc.Proc) 
 	if l, ok := launched(provider, info.Args); ok && !pr.typed {
 		pr.launch = l
 	}
-	// A handed-down agent never restarted, so a switch since its launch outlives the argv.
+	// A handed-down agent never restarted: its saved launch, at most a save behind, has every switch since its argv.
 	if h != nil && h.handoff && h.saved.Launch != nil {
 		pr.launch = *h.saved.Launch
 	}
