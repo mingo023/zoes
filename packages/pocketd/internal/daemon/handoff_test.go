@@ -197,10 +197,29 @@ func TestAnAgentReattachedAfterACrashTakesItsAccessFromItsCommandLine(t *testing
 	saved := state.Terminal{TerminalID: term.Info().ID, LaunchDir: t.TempDir(), Cols: 80, Rows: 24, Provider: "claude", ConversationID: "c1",
 		TranscriptPath: transcript(t, "hi"), Launch: &state.Launch{Access: "full"}, AgentID: "a-1", CreatedAt: 7, Status: "idle"}
 
-	d.expect(saved, term, "", &handoff.Agent{Phase: "idle", FromStateFile: true})
+	d.expect(saved, term, "", &handoff.Agent{Phase: "idle", LaunchUnchecked: true})
 	pr := waitPresent(t, d, term)
 
 	if s := pr.a.Summary(); s.Access != "ask" {
 		t.Fatalf("access %q", s.Access)
+	}
+}
+
+func TestARestartedAgentNotBackYetIsHandedDownWithItsLaunchUnchecked(t *testing.T) {
+	d := newDaemon(t)
+	term, err := d.Terminals.Spawn(terminal.Spec{Cmd: "sleep", Args: []string{"30"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(term.Close)
+	saved := state.Terminal{TerminalID: term.Info().ID, LaunchDir: t.TempDir(), Cols: 80, Rows: 24, Provider: "claude", ConversationID: "c1",
+		Launch: &state.Launch{Access: "full"}, AgentID: "a-1", CreatedAt: 7, Status: "idle"}
+	d.expect(saved, term, "", nil)
+
+	terms := d.Carry()
+	defer d.Release()
+
+	if len(terms) != 1 || terms[0].Agent == nil || !terms[0].Agent.LaunchUnchecked {
+		t.Fatalf("handed = %+v", terms)
 	}
 }

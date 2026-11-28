@@ -36,7 +36,14 @@ func (d *Daemon) Carry() []handoff.Terminal {
 			pr.mu.Unlock()
 			e.Launch = &l
 		}
-		out = append(out, handoff.Terminal{Saved: e, Cmd: info.Cmd, Args: info.Args, Cwd: info.Cwd, Agent: d.carried(e.AgentID, pr)})
+		a := d.carried(e.AgentID, pr)
+		if a != nil && pr == nil {
+			d.mu.Lock()
+			h := d.restoring[info.ID]
+			a.LaunchUnchecked = h == nil || !h.carried
+			d.mu.Unlock()
+		}
+		out = append(out, handoff.Terminal{Saved: e, Cmd: info.Cmd, Args: info.Args, Cwd: info.Cwd, Agent: a})
 	}
 	return out
 }
@@ -146,7 +153,7 @@ func (d *Daemon) Reattach(clients []*holder.Client, carried []handoff.Terminal, 
 			continue
 		}
 		if agent == nil {
-			agent = &handoff.Agent{Phase: phaseOf(e.Status), FromStateFile: true}
+			agent = &handoff.Agent{Phase: phaseOf(e.Status), LaunchUnchecked: true}
 		}
 		d.expect(e, t, "", agent)
 	}
