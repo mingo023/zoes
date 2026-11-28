@@ -52,6 +52,9 @@ type Agent struct {
 	// Read is how far its Claude transcript is in its timeline: to the end of a whole line.
 	Read       int64               `json:"read,omitempty"`
 	Background timeline.Background `json:"background,omitzero"`
+	// FromStateFile is an Agent a crash left no record of, made from the state file, whose launch may predate
+	// the running agent's.
+	FromStateFile bool `json:"-"`
 }
 
 func Path(home string) string { return filepath.Join(home, "handoff.json") }

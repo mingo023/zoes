@@ -146,7 +146,7 @@ func (d *Daemon) Reattach(clients []*holder.Client, carried []handoff.Terminal, 
 			continue
 		}
 		if agent == nil {
-			agent = &handoff.Agent{Phase: phaseOf(e.Status)}
+			agent = &handoff.Agent{Phase: phaseOf(e.Status), FromStateFile: true}
 		}
 		d.expect(e, t, "", agent)
 	}

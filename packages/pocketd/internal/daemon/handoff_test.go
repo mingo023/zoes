@@ -186,3 +186,21 @@ func TestAnAgentStillSettlingFromARestartIsHandedDownWithTheAccessItResumedOn(t 
 		t.Fatalf("handed = %+v", terms)
 	}
 }
+
+func TestAnAgentReattachedAfterACrashTakesItsAccessFromItsCommandLine(t *testing.T) {
+	d := newDaemon(t)
+	term, err := d.Terminals.Spawn(terminal.Spec{Cmd: fakeAgent(t, "claude"), Args: []string{"--permission-mode", "default"}, Env: []string{"PATH=/bin:/usr/bin"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(term.Close)
+	saved := state.Terminal{TerminalID: term.Info().ID, LaunchDir: t.TempDir(), Cols: 80, Rows: 24, Provider: "claude", ConversationID: "c1",
+		TranscriptPath: transcript(t, "hi"), Launch: &state.Launch{Access: "full"}, AgentID: "a-1", CreatedAt: 7, Status: "idle"}
+
+	d.expect(saved, term, "", &handoff.Agent{Phase: "idle", FromStateFile: true})
+	pr := waitPresent(t, d, term)
+
+	if s := pr.a.Summary(); s.Access != "ask" {
+		t.Fatalf("access %q", s.Access)
+	}
+}
