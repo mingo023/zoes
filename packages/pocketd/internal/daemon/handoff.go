@@ -28,7 +28,15 @@ func (d *Daemon) Carry() []handoff.Terminal {
 		if !ok {
 			e = state.Terminal{TerminalID: info.ID, LaunchDir: info.Cwd, Cols: info.Cols, Rows: info.Rows, Local: info.Local}
 		}
-		out = append(out, handoff.Terminal{Saved: e, Cmd: info.Cmd, Args: info.Args, Cwd: info.Cwd, Agent: d.carried(e.AgentID, d.presentIn(info.ID))})
+		pr := d.presentIn(info.ID)
+		// A restart still settling saves the launch from before it, not the one its agent resumed on.
+		if pr != nil && e.Launch != nil {
+			pr.mu.Lock()
+			l := pr.launch
+			pr.mu.Unlock()
+			e.Launch = &l
+		}
+		out = append(out, handoff.Terminal{Saved: e, Cmd: info.Cmd, Args: info.Args, Cwd: info.Cwd, Agent: d.carried(e.AgentID, pr)})
 	}
 	return out
 }

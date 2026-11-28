@@ -137,6 +137,7 @@ func countOf(items []string, want string) int {
 type listedAgent struct {
 	ID      string `json:"id"`
 	Restore string `json:"restore"`
+	Access  string `json:"access"`
 }
 
 func (p *Phone) agents() []listedAgent {

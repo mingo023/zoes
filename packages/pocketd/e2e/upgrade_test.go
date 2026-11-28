@@ -216,3 +216,27 @@ func TestAFailedUpgradeGoesOnFollowingTheClaudeTranscript(t *testing.T) {
 
 	phone.WaitFor("the reply", streamOf(id, "assistant", "echo: hello"))
 }
+
+func TestAnUpgradeKeepsTheAccessAChatWasSwitchedTo(t *testing.T) {
+	h, phone, _, id := chatClaude(t)
+	if got := access(phone, id, "a1", "full"); got.Type != "ack" {
+		t.Fatalf("switch: %s", got.Raw)
+	}
+
+	h.Upgrade()
+
+	again := h.Owner()
+	var got []listedAgent
+	h.eventually("the agent back on its process", func() bool {
+		got = again.agents()
+		return len(got) == 1 && got[0].Access != ""
+	})
+	if got[0].ID != id || got[0].Access != "full" || got[0].Restore != "" {
+		t.Fatalf("agents after the upgrade: %+v", got)
+	}
+	again.Prompt(id, "hello")
+	again.WaitFor("the reply", streamOf(id, "assistant", "echo: hello"))
+	if got = again.agents(); got[0].Access != "full" {
+		t.Fatalf("agents after a turn: %+v", got)
+	}
+}

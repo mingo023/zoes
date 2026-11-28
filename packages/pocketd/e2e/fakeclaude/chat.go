@@ -76,6 +76,7 @@ func (c *chatter) read(prompts chan<- string) {
 				Subtype  string         `json:"subtype"`
 				TaskID   string         `json:"task_id"`
 				Model    string         `json:"model"`
+				Mode     string         `json:"mode"`
 				Settings map[string]any `json:"settings"`
 				Enabled  bool           `json:"enabled"`
 			} `json:"request"`
@@ -107,6 +108,10 @@ func (c *chatter) read(prompts chan<- string) {
 				c.switched = append(c.switched, l.Request.Model)
 				c.mu.Unlock()
 				note("set_model: %s", l.Request.Model)
+			case "set_permission_mode":
+				c.mu.Lock()
+				c.mode = l.Request.Mode
+				c.mu.Unlock()
 			case "apply_flag_settings":
 				note("effort: %v", l.Request.Settings["effortLevel"])
 			case "stop_task":
