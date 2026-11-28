@@ -550,7 +550,7 @@ impl Desktop {
         let Some(Tab::Term(terminal)) = self.pane_tab(self.focused_pane(cx), cx) else { return None };
         let s = self.summary(&terminal).filter(|s| self.can_hand_off(s))?;
         let title =
-            if self.handoff.read(cx).moving(&s.id) { crate::handoff::menu_label(true).to_string() } else { format!("Hand off “{}” to a host…", s.title) };
+            if self.handoff.read(cx).moving(&s.id) { crate::handoff::menu_label(true).to_string() } else { format!("Move “{}” to a host…", s.title) };
         let projects = self.projects(cx);
         let detail = format!("{} · {}", self.agent_name(&s.provider), self.repo_name(self.agent_project(s, &s.cwd, &projects).unwrap_or(&s.cwd)));
         Some(Entry { pick: Pick::Handoff(s.id.clone()), lead: Lead::Icon("server"), title, detail })
@@ -577,7 +577,7 @@ impl Desktop {
             Pick::Go(screen) => self.go_to_screen(screen, window, cx),
             Pick::PairPhone => self.open(Overlay::PairPhone, window, cx),
             Pick::HostFolder => self.open_host_folder(window, cx),
-            Pick::Handoff(id) => self.open_handoff(&id, window, cx),
+            Pick::Handoff(id) => self.open_handoff(&id, None, window, cx),
             Pick::Sound(cue) => {
                 cue.flip(&mut self.store.sounds);
                 self.store.save();

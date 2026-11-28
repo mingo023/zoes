@@ -262,6 +262,8 @@ pub(crate) enum Menu {
     Switch,
     /// The chat's goal, opened from its pill.
     Goal,
+    /// The chat's host chip: where its session runs and the hosts it can move to.
+    Host,
 }
 
 /// A composer's choices besides its words.
@@ -368,6 +370,14 @@ impl Draft {
             _ => return false,
         }
         true
+    }
+
+    pub(crate) fn escape_host(&mut self) -> bool {
+        let open = self.menu == Some(Menu::Host);
+        if open {
+            self.menu = None;
+        }
+        open
     }
 
     /// Esc on the model panel closes a setting's list of values, else the panel. False while it isn't open.

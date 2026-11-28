@@ -317,7 +317,7 @@ impl Desktop {
             MenuAction::SessionPin { id, pin } => self.outbox.pin(&id, pin),
             MenuAction::CopyPath(text) | MenuAction::CopyResume(text) => cx.write_to_clipboard(ClipboardItem::new_string(text)),
             MenuAction::Fork(id) => return self.fork_session(&id, None, cx),
-            MenuAction::Handoff(id) => return self.open_handoff(&id, window, cx),
+            MenuAction::Handoff(id) => return self.open_handoff(&id, None, window, cx),
             MenuAction::Close(id) => return self.ask_close_session(id, cx),
         }
         cx.notify();

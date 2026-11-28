@@ -13,17 +13,7 @@ impl Panels {
                 this.top_actions = None;
                 cx.emit(PanelsEvent::Fork(agent.clone()));
             }))
-        });
-        let handoff = rows.handoff.map(|label| {
-            let agent = rows.agent.clone();
-            ui::menu_row("top-handoff", "server", label, None).on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                this.top_actions = None;
-                cx.emit(PanelsEvent::Handoff(agent.clone()));
-            }))
-        });
-        if fork.is_none() && handoff.is_none() {
-            return None;
-        }
+        })?;
         let menu = ui::pop(div().id("top-actions"))
             .w(px(220.))
             .p(px(6.))
@@ -34,8 +24,7 @@ impl Panels {
                 this.top_actions = None;
                 cx.notify();
             }))
-            .children(fork)
-            .children(handoff);
+            .child(fork);
         Some(deferred(anchored().position(at).snap_to_window_with_margin(px(8.)).child(ui::menu_in("top-actions-in", menu))).with_priority(1))
     }
 }

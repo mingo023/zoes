@@ -84,7 +84,6 @@ pub(crate) struct TabFile(pub(super) Option<(String, String)>);
 pub(crate) struct TopActions {
     pub(super) agent: String,
     pub(super) fork: bool,
-    pub(super) handoff: Option<&'static str>,
 }
 
 impl Desktop {
@@ -183,7 +182,7 @@ impl Desktop {
         Menus {
             new_tab: menu.map(|_| self.new_tab_rows(cx)),
             actions: actions.map(|(_, tab, _)| self.tab_file(&tab, cx)),
-            top: top.and_then(|(agent, _)| self.top_actions_rows(agent, cx)),
+            top: top.and_then(|(agent, _)| self.top_actions_rows(agent)),
         }
     }
 
@@ -212,11 +211,10 @@ impl Desktop {
         }))
     }
 
-    fn top_actions_rows(&self, agent: String, cx: &App) -> Option<TopActions> {
+    fn top_actions_rows(&self, agent: String) -> Option<TopActions> {
         let s = self.agents.get(&agent)?;
         let fork = self.chat_shown(&s.terminal_id) && self.can_fork(s);
-        let handoff = self.can_hand_off(s).then(|| crate::handoff::menu_label(self.handoff.read(cx).moving(&agent)));
-        Some(TopActions { agent, fork, handoff })
+        Some(TopActions { agent, fork })
     }
 
     /// Closes every tab of `pane` but tab `keep`, highest index first so the rest keep theirs, stopping at the first that asks to be confirmed.
@@ -275,7 +273,6 @@ impl Desktop {
                 self.fork_session(agent, Some(Place::Top), cx);
                 cx.notify();
             }
-            PanelsEvent::Handoff(agent) => self.open_handoff(agent, window, cx),
             PanelsEvent::TopSwitch(i) => self.switch_top(*i, window, cx),
             PanelsEvent::TopClose(i) => self.close_top(*i, cx),
             PanelsEvent::Moved => {

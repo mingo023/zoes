@@ -86,18 +86,20 @@ pub(crate) fn tag(probe: Option<&Probe>, conversation: bool) -> Tag {
     }
 }
 
-/// The session whose conversation a pressed handoff waits for: its sheet opens once the timeline's newest page is here.
+/// The session whose conversation a pressed handoff waits for, and the host picked for it: its sheet opens once the
+/// timeline's newest page is here.
 #[derive(Default, Debug)]
-pub(crate) struct Awaiting(Option<String>);
+pub(crate) struct Awaiting(Option<(String, Option<String>)>);
 
 impl Awaiting {
-    pub fn press(&mut self, id: &str, loaded: bool) -> bool {
-        self.0 = (!loaded).then(|| id.to_string());
+    pub fn press(&mut self, id: &str, loaded: bool, host: Option<String>) -> bool {
+        self.0 = (!loaded).then(|| (id.to_string(), host));
         loaded
     }
 
-    pub fn arrived(&mut self, id: &str) -> bool {
-        self.0.take_if(|waiting| waiting == id).is_some()
+    /// The host picked for `id`'s handoff, once its page is the one waited for.
+    pub fn arrived(&mut self, id: &str) -> Option<Option<String>> {
+        self.0.take_if(|(waiting, _)| waiting == id).map(|(_, host)| host)
     }
 
     pub fn waiting(&self) -> bool {
@@ -227,8 +229,8 @@ pub(crate) struct Handoff {
 }
 
 impl Handoff {
-    pub fn new(source: Source) -> Self {
-        Self { source, host: None, probes: HashMap::new(), stage: Stage::Pick, run: None, generation: 0, cheers: 0, caps: HashMap::new() }
+    pub fn new(source: Source, host: Option<String>) -> Self {
+        Self { source, host, probes: HashMap::new(), stage: Stage::Pick, run: None, generation: 0, cheers: 0, caps: HashMap::new() }
     }
 
     pub fn probe(&self) -> Option<&Probe> {
@@ -250,7 +252,7 @@ impl Handoff {
 
 /// The menu row that opens the sheet, or brings back the handoff `underway`.
 pub(crate) fn menu_label(underway: bool) -> &'static str {
-    if underway { "Show handoff" } else { "Hand off to a host…" }
+    if underway { "Show move" } else { "Move to a host…" }
 }
 
 /// How a session of this Mac reads while it's handed off, and after.
@@ -274,7 +276,7 @@ impl Mark {
     pub fn notice(&self, host: &str) -> ui::Notice {
         let (icon, text, warn) = match self {
             Mark::Moving(_) => ("server", format!("Moving to {host}…"), false),
-            Mark::Stopped => ("warning", "Handoff stopped · still here".into(), true),
+            Mark::Stopped => ("warning", "Move stopped · still here".into(), true),
         };
         ui::Notice { icon: Some(icon), text: text.into(), warn }
     }
@@ -290,8 +292,8 @@ impl Mark {
     /// What its locked composer says. A stopped handoff keeps it locked, as a retry sends the code packed before.
     pub fn composer(&self) -> &'static str {
         match self {
-            Mark::Stopped => "Prompts wait until you retry or close the handoff",
-            _ => "Prompts wait until the handoff finishes",
+            Mark::Stopped => "Prompts wait until you retry or close the move",
+            _ => "Prompts wait until the move finishes",
         }
     }
 }
@@ -439,8 +441,8 @@ impl Desktop {
         }
     }
 
-    /// Opens the sheet for agent `id`, or brings back the handoff of it underway.
-    pub(crate) fn open_handoff(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+    /// Opens the sheet for agent `id`, on `host` when one was picked, or brings back the handoff of it underway.
+    pub(crate) fn open_handoff(&mut self, id: &str, host: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         // One handoff runs at a time: a session's menu brings back the one underway rather than dropping it.
         if self.handoff.read(cx).open.as_ref().is_some_and(|h| h.run.is_some() && (h.source.agent == id || h.stage == Stage::Moving)) {
             return self.open(Overlay::Handoff, window, cx);
@@ -449,20 +451,20 @@ impl Desktop {
             return;
         }
         let loaded = self.agents.loaded.contains(id);
-        if !self.handoff.update(cx, |h, _| h.awaiting.press(id, loaded)) {
+        if !self.handoff.update(cx, |h, _| h.awaiting.press(id, loaded, host.clone())) {
             self.outbox.timeline(id);
             return self.open(Overlay::Handoff, window, cx);
         }
-        self.open_handoff_sheet(id, window, cx);
+        self.open_handoff_sheet(id, host, window, cx);
     }
 
     pub(crate) fn handoff_paged(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
-        if self.handoff.update(cx, |h, _| h.awaiting.arrived(id)) {
-            self.open_handoff_sheet(id, window, cx);
+        if let Some(host) = self.handoff.update(cx, |h, _| h.awaiting.arrived(id)) {
+            self.open_handoff_sheet(id, host, window, cx);
         }
     }
 
-    fn open_handoff_sheet(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+    fn open_handoff_sheet(&mut self, id: &str, host: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(s) = self.agents.get(id) else { return };
         let agent_name = self.agent_name(&s.provider);
         let repo = self.repos.get(&s.cwd);
@@ -498,7 +500,7 @@ impl Desktop {
         let draft = handoff::summary::draft(&known);
         self.handoff.update(cx, |h, cx| {
             h.summary.update(cx, |t, cx| t.set_value(draft, window, cx));
-            h.open = Some(Handoff::new(source));
+            h.open = Some(Handoff::new(source, host));
         });
         self.open(Overlay::Handoff, window, cx);
         self.check_hosts(cx);
@@ -913,23 +915,41 @@ mod tests {
     #[test]
     fn a_handoff_of_a_chat_not_loaded_waits_for_its_page_and_proceeds_when_it_comes() {
         let mut awaiting = Awaiting::default();
-        assert!(!awaiting.press("a1", false));
+        assert!(!awaiting.press("a1", false, None));
         assert!(awaiting.waiting(), "the sheet shows its spinner");
-        assert!(!awaiting.arrived("a2"), "another chat's page is not the one waited for");
+        assert_eq!(awaiting.arrived("a2"), None, "another chat's page is not the one waited for");
         assert!(awaiting.waiting());
-        assert!(awaiting.arrived("a1"));
+        assert_eq!(awaiting.arrived("a1"), Some(None));
         assert!(!awaiting.waiting());
-        assert!(!awaiting.arrived("a1"), "it proceeds once");
+        assert_eq!(awaiting.arrived("a1"), None, "it proceeds once");
     }
 
     #[test]
     fn a_handoff_of_a_loaded_chat_proceeds_at_once_and_a_closed_sheet_stops_waiting() {
         let mut awaiting = Awaiting::default();
-        assert!(awaiting.press("a1", true));
+        assert!(awaiting.press("a1", true, None));
         assert!(!awaiting.waiting());
-        awaiting.press("a1", false);
+        awaiting.press("a1", false, None);
         awaiting.cancel();
-        assert!(!awaiting.arrived("a1"));
+        assert_eq!(awaiting.arrived("a1"), None);
+    }
+
+    #[test]
+    fn a_move_to_a_picked_host_keeps_that_host_through_the_wait_for_its_page() {
+        let mut awaiting = Awaiting::default();
+        awaiting.press("a1", false, Some("studio".into()));
+        assert_eq!(awaiting.arrived("a1"), Some(Some("studio".into())));
+    }
+
+    #[test]
+    fn the_sheet_opens_on_the_picked_host_while_it_is_connected_and_on_the_first_one_once_it_is_not() {
+        let online = ["mini".to_string(), "studio".to_string()];
+        let mut h = Handoff::new(Source::default(), Some("studio".into()));
+        h.keep_host(&online);
+        assert_eq!(h.host.as_deref(), Some("studio"));
+        let mut h = Handoff::new(Source::default(), Some("gone".into()));
+        h.keep_host(&online);
+        assert_eq!(h.host.as_deref(), Some("mini"));
     }
 
     fn ready() -> Probe {
@@ -997,7 +1017,7 @@ mod tests {
 
     #[test]
     fn the_picked_host_stays_while_connected_else_the_first_one_is_picked() {
-        let mut h = Handoff::new(Source::default());
+        let mut h = Handoff::new(Source::default(), None);
         let online = vec!["devbox".to_string(), "mini".to_string()];
         h.keep_host(&online);
         assert_eq!(h.host.as_deref(), Some("devbox"));
@@ -1012,7 +1032,7 @@ mod tests {
 
     #[test]
     fn a_session_reads_moving_then_stopped_on_a_failure_and_as_before_once_done() {
-        let mut h = Handoff::new(Source { agent: "a1".into(), ..Source::default() });
+        let mut h = Handoff::new(Source { agent: "a1".into(), ..Source::default() }, None);
         h.host = Some("devbox".into());
         assert_eq!(mark(Some(&h), "a1"), None, "picking a host moves nothing yet");
         h.stage = Stage::Moving;
@@ -1021,7 +1041,7 @@ mod tests {
         assert_eq!(mark(Some(&h), "a2"), None);
         h.run.as_mut().unwrap().failed = Some("offline".into());
         assert_eq!(mark(Some(&h), "a1"), Some(Mark::Stopped));
-        assert_eq!(Mark::Stopped.composer(), "Prompts wait until you retry or close the handoff");
+        assert_eq!(Mark::Stopped.composer(), "Prompts wait until you retry or close the move");
         h.run.as_mut().unwrap().failed = None;
         h.stage = Stage::Done;
         assert_eq!(mark(Some(&h), "a1"), None, "its conversation goes on here once the host has its copy");
@@ -1029,7 +1049,7 @@ mod tests {
 
     #[test]
     fn a_stopped_run_goes_on_only_when_its_own_host_is_back() {
-        let mut h = Handoff::new(Source::default());
+        let mut h = Handoff::new(Source::default(), None);
         h.host = Some("devbox".into());
         h.run = Some(Run::new(false, true));
         assert!(!h.stopped_on("devbox"), "a run still going needs no retry");

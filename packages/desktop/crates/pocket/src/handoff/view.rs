@@ -124,7 +124,7 @@ impl HandoffState {
     }
 
     fn loading_sheet(&mut self, cx: &mut Context<Self>) -> Div {
-        let title = header("Hand off to a host".into(), self.close_button(cx));
+        let title = header("Move to a host".into(), self.close_button(cx));
         let reading = div()
             .px(px(20.))
             .py(px(28.))
@@ -143,7 +143,7 @@ impl HandoffState {
         let online: Vec<&HostRow> = self.hosts.iter().filter(|h| h.online).collect();
         let h = self.open.as_ref().expect("open");
         let s = &h.source;
-        let title = header("Hand off to a host".into(), self.close_button(cx));
+        let title = header("Move to a host".into(), self.close_button(cx));
         if online.is_empty() {
             let empty = div()
                 .px(px(20.))
@@ -267,9 +267,7 @@ impl HandoffState {
             Primary::CheckAgain => {
                 button("handoff-go", Variant::Primary, "Check again").on_click(cx.listener(|_, _: &ClickEvent, _, cx| cx.emit(HandoffEvent::Check)))
             }
-            Primary::HandOff => {
-                button("handoff-go", Variant::Primary, "Hand off").on_click(cx.listener(|_, _: &ClickEvent, _, cx| cx.emit(HandoffEvent::Start)))
-            }
+            Primary::HandOff => button("handoff-go", Variant::Primary, "Move").on_click(cx.listener(|_, _: &ClickEvent, _, cx| cx.emit(HandoffEvent::Start))),
             Primary::ReviewSummary | Primary::WriteSummary => {
                 let text = if primary(t, drafted) == Primary::ReviewSummary { "Review summary…" } else { "Write summary…" };
                 button("handoff-go", Variant::Primary, text).on_click(cx.listener(|d, _: &ClickEvent, window, cx| {
@@ -280,7 +278,7 @@ impl HandoffState {
                     cx.notify();
                 }))
             }
-            Primary::Waiting => button("handoff-go", Variant::Primary, if conversation { "Hand off" } else { "Review summary…" }).opacity(0.4).cursor_default(),
+            Primary::Waiting => button("handoff-go", Variant::Primary, if conversation { "Move" } else { "Review summary…" }).opacity(0.4).cursor_default(),
         };
         body.push(foot(vec![cancel, go]));
         sheet(body)
@@ -457,13 +455,12 @@ impl HandoffState {
             .child("Keep this Mac awake until it’s done.");
         let mut buttons = vec![];
         if cancellable {
-            buttons.push(
-                button("handoff-cancel", Variant::Ghost, "Cancel handoff").on_click(cx.listener(|_, _: &ClickEvent, _, cx| cx.emit(HandoffEvent::Cancel))),
-            );
+            buttons
+                .push(button("handoff-cancel", Variant::Ghost, "Cancel move").on_click(cx.listener(|_, _: &ClickEvent, _, cx| cx.emit(HandoffEvent::Cancel))));
         }
         buttons.push(button("handoff-hide", Variant::Secondary, "Hide").on_click(cx.listener(hide)));
         sheet([
-            header(format!("Handing off to {host}"), x_button("handoff-close", "x").on_click(cx.listener(hide))),
+            header(format!("Moving to {host}"), x_button("handoff-close", "x").on_click(cx.listener(hide))),
             self.steps_box(),
             safe.into_any_element(),
             foot(buttons),
@@ -483,7 +480,7 @@ impl HandoffState {
         } else if step == Some(Step::Check) {
             (format!("The conversation didn’t open on {host}"), format!("{agent} opened empty there. {mac}"))
         } else {
-            (format!("The handoff to {host} stopped"), mac.to_string())
+            (format!("The move to {host} stopped"), mac.to_string())
         };
         sheet([
             header(title, self.close_button(cx)),
