@@ -148,6 +148,6 @@ impl ComposerState {
 
 impl Desktop {
     pub(crate) fn escape_composer_menu(&mut self, cx: &mut App) -> bool {
-        self.chats.composer.update(cx, |c, _| c.draft.escape_account() || c.draft.escape_model())
+        self.chats.composer.update(cx, |c, _| c.draft.escape_account() || c.draft.escape_model() || c.draft.escape_host())
     }
 }

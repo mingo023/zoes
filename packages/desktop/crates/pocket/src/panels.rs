@@ -55,7 +55,6 @@ pub(crate) enum PanelsEvent {
     GoToFile,
     Ask(String),
     Fork(String),
-    Handoff(String),
     TopSwitch(usize),
     TopClose(usize),
     Moved,

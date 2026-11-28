@@ -4,6 +4,7 @@ pub(crate) mod attachments;
 pub(crate) mod background;
 pub(crate) mod btw;
 mod goal;
+pub(crate) mod host_chip;
 pub(crate) mod model_pill;
 pub(crate) mod prompt_box;
 pub(crate) mod queue;
@@ -181,6 +182,7 @@ pub(crate) enum ChatBoxEvent {
     Pick(usize),
     Link { agent: String, link: String, cwd: String, press: super::markdown::Press },
     Drop { agent: String, paths: ExternalPaths },
+    Move { agent: String, to: host_chip::Move },
 }
 
 impl EventEmitter<ChatBoxEvent> for ComposerState {}
@@ -395,11 +397,12 @@ pub(crate) struct Frame {
     chip: Option<account_chip::Chip>,
     said: Option<(&'static str, String)>,
     branch: Option<Div>,
+    host: Option<host_chip::HostChip>,
 }
 
 impl ComposerState {
     pub(crate) fn view(&mut self, frame: Frame, window: &mut Window, cx: &mut Context<Self>) -> Div {
-        let Frame { terminal, agent, name, mode, ask, focused, caps, busy, stopping, face, tray, transcript, map, chip, said, branch } = frame;
+        let Frame { terminal, agent, name, mode, ask, focused, caps, busy, stopping, face, tray, transcript, map, chip, said, branch, host } = frame;
         let agent = &agent;
         let dock = div().flex_none().flex().justify_center().px(px(32.)).pb(px(16.));
         let input = self.input.read(cx).focus_handle(cx);
@@ -447,7 +450,8 @@ impl ComposerState {
         let empty = typed.trim().is_empty() && !draft.is_some_and(Draft::sends_without_text);
         let asking = matches!(mode, Mode::Permission { .. } | Mode::Question { .. });
         let account = chip.map(|chip| self.account_chip(&chip, cx));
-        let footer = footer(branch, account, hint(mode, busy, stopping, empty, can_queue), said, asking);
+        let host = host.map(|h| self.host_chip(&h, cx));
+        let footer = footer(host, branch, account, hint(mode, busy, stopping, empty, can_queue), said, asking);
         let column = div()
             .w_full()
             .max_w(px(MAX_WIDTH))
@@ -464,7 +468,7 @@ impl ComposerState {
     }
 }
 
-fn footer(branch: Option<Div>, account: Option<Div>, hint: Option<&'static str>, said: Option<(&'static str, String)>, asking: bool) -> Div {
+fn footer(host: Option<Div>, branch: Option<Div>, account: Option<Div>, hint: Option<&'static str>, said: Option<(&'static str, String)>, asking: bool) -> Div {
     div()
         .min_w_0()
         .pt(px(8.))
@@ -474,6 +478,7 @@ fn footer(branch: Option<Div>, account: Option<Div>, hint: Option<&'static str>,
         .gap(px(10.))
         .text_size(px(12.))
         .text_color(TEXT_3)
+        .children(host)
         .children(branch)
         .children(account)
         .child(div().flex_1())
@@ -623,6 +628,7 @@ impl Desktop {
             ChatBoxEvent::ShowBlock { agent, turn, block } => self.chat_show_block(agent, *turn, *block, cx),
             ChatBoxEvent::Queue { agent, what } => self.on_queue(agent, what, window, cx),
             ChatBoxEvent::Account(ask) => self.on_account_ask(ask, window, cx),
+            ChatBoxEvent::Move { agent, to } => self.on_move(agent, to, window, cx),
             ChatBoxEvent::Model(ev) => self.on_model(ev, cx),
             ChatBoxEvent::Press { terminal, action } => self.chat_press(terminal, *action, window, cx),
             ChatBoxEvent::Escape(terminal) => self.chat_escape(terminal, cx),
@@ -1036,6 +1042,7 @@ impl Desktop {
             chip,
             said,
             branch,
+            host: (mode != Mode::ViewOnly || mark.is_some()).then(|| self.chat_host_chip(agent, cx)).flatten(),
         };
         composer.update(cx, |c, cx| c.view(frame, window, cx))
     }
